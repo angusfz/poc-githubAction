@@ -15,4 +15,4 @@ jobs:
     - name: Run a multi-line script
       run: |
         npm i aws-cdk
-        cdk --version
+        whoami
