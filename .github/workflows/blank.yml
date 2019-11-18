@@ -20,3 +20,4 @@ jobs:
       - run: echo "::set-env name=TTTTT::yellow"
       - run: find . -type f
       - run: env
+      - run: echo ${{secrets.SEC}}
