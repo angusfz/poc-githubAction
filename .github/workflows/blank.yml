@@ -17,3 +17,5 @@ jobs:
           architecture: x64
       - run: python --version
       - run: aws --version
+      - run: pip install --upgrade awscli
+      - run: aws --version
