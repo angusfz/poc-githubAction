@@ -18,5 +18,5 @@ jobs:
       - run: set
       - run: env
       - run: export TTTTT=aaaaa
-      - run: env|grep TTTTT
+      - run: "env|grep TTTTT"
       - run: find . -type f
