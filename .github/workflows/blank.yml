@@ -9,7 +9,7 @@ jobs:
     runs-on: ubuntu-18.04
     strategy:
       matrix:
-        python-version: [3.8]
+        python-version: [ '2.x', '3.x', 'pypy2', 'pypy3' ]
     steps:
       - uses: actions/checkout@v1
       - name: Run a one-line script
