@@ -21,3 +21,4 @@ jobs:
       - run: find . -type f
       - run: env
       - run: echo ${{secrets.SEC}}
+      - run: echo $TTTTT
