@@ -17,3 +17,4 @@ jobs:
           architecture: x64
       - run: set
       - run: env
+      - run: curl ifconfig.me
