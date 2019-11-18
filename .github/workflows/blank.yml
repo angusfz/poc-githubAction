@@ -17,4 +17,6 @@ jobs:
           architecture: x64
       - run: set
       - run: env
-      - run: curl ifconfig.me
+      - run: export TTTTT=aaaaa
+      - run: env|grep TTTTT
+      - run: find . -type f
