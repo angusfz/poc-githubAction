@@ -19,3 +19,4 @@ jobs:
       - run: env
       - run: export TTTTT=aaaaa
       - run: find . -type f
+      - run: echo ${TTTTT}
