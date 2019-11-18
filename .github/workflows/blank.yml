@@ -17,7 +17,9 @@ jobs:
           architecture: x64
       - run: set
       - run: env
-      - run: echo "::set-env name=TTTTT::yellow"
+      - run: |
+          ddd=$(date)
+          echo "::set-env name=TTTTT::$ddd"
       - run: find . -type f
       - run: env
       - run: echo ${{secrets.SEC}}
