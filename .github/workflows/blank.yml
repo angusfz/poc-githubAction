@@ -17,6 +17,6 @@ jobs:
           architecture: x64
       - run: set
       - run: env
-      - run: export TTTTT=aaaaa
+      - run: echo "::set-env name=TTTTT::yellow"
       - run: find . -type f
       - run: env
