@@ -7,8 +7,10 @@ jobs:
   test:
     runs-on: ubuntu-18.04
     steps:
+      
       - name: Checkout
         uses: actions/checkout@v1
+      
       - name: cfn-lint
         uses: scottbrenner/cfn-lint-action@master
         with:
@@ -18,8 +20,10 @@ jobs:
     needs: test
     runs-on: ubuntu-18.04
     steps:
+      
       - name: Checkout
-        uses: actions/checkout@v1    
+        uses: actions/checkout@v1
+        
       - name: Setup python
         uses: actions/setup-python@v1
         with:
