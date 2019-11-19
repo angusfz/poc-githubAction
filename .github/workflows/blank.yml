@@ -15,10 +15,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v1
       
-      - name: cfn-lint
-        uses: scottbrenner/cfn-lint-action@master
-        with:
-          args: ${CFN_TEMPLATE}
+      #- name: cfn-lint
+      #  uses: scottbrenner/cfn-lint-action@master
+      #  with:
+      #    args: ${CFN_TEMPLATE}
       - run: find . -type f
       - run: touch 123123123
       - run: find . -type f
@@ -29,3 +29,5 @@ jobs:
     steps:
       - run: touch aaaaaaaaa
       - run: find . -type f
+      - run: |
+          env|sort
