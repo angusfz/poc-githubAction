@@ -5,8 +5,9 @@ on:
       - master
       - deploy/test
 env:
-  CFN_STACKNAME: 'infra-permission'
-  CFN_TEMPLATE: './cloudformation/service.yaml'
+  CFN_STACKNAME: infra-permission
+  CFN_TEMPLATE: ./cloudformation/service.yaml
+  GIT_BRANCHNAME: ${GITHUB_REF##*/}
 
 jobs:
   test:
@@ -32,3 +33,4 @@ jobs:
       - run: find . -type f
       - run: |
           env|sort
+      - run: echo ${{GIT_BRANCHNAME}}
