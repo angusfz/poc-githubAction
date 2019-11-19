@@ -14,7 +14,7 @@ Parameters:
       - "develop"
       - "sandbox"
       - "demo"
-ssss:
+      
   StackOwner:
     Type: String
     Description: "StackOwner's EMAIL"
