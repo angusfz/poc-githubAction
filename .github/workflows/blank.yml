@@ -7,7 +7,6 @@ on:
 env:
   CFN_STACKNAME: infra-permission
   CFN_TEMPLATE: ./cloudformation/service.yaml
-  GIT_BRANCHNAME: ${GITHUB_REF##*/}
 
 jobs:
   test:
@@ -33,4 +32,10 @@ jobs:
       - run: find . -type f
       - run: |
           env|sort
-      - run: echo ${{GIT_BRANCHNAME}}
+
+      - uses: rlespinasse/github-slug-action@1.0.1
+      - name: Print slug variables
+        run: |
+                echo ${{ env.GITHUB_REF_SLUG }}
+                echo ${{ env.GITHUB_HEAD_REF_SLUG }}
+                echo ${{ env.GITHUB_BASE_REF_SLUG }}
