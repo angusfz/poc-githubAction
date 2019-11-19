@@ -19,26 +19,11 @@ jobs:
         uses: scottbrenner/cfn-lint-action@master
         with:
           args: ${CFN_TEMPLATE}
+      - run: find . -type f
       
   deploy:
     needs: test
     runs-on: ubuntu-18.04
     steps:
       
-      - name: Checkout
-        uses: actions/checkout@v1
-        
-      - name: Setup python
-        uses: actions/setup-python@v1
-        with:
-          python-version: 3.7
-          architecture: x64
-      - run: set
-      - run: env
-      - run: |
-          ddd=$(date)
-          echo "::set-env name=TTTTT::$ddd"
       - run: find . -type f
-      - run: env
-      - run: echo ${{secrets.SEC}}
-      - run: echo $TTTTT
