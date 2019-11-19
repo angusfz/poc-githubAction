@@ -3,6 +3,10 @@ on:
   push:
     branches: 
       - master
+env:
+  CFN_STACKNAME: 'infra-permission'
+  CFN_TEMPLATE: './cloudformation/service.yaml'
+
 jobs:
   test:
     runs-on: ubuntu-18.04
@@ -14,7 +18,7 @@ jobs:
       - name: cfn-lint
         uses: scottbrenner/cfn-lint-action@master
         with:
-          args: cloudformation/*.yaml
+          args: ${CFN_TEMPLATE}
       
   deploy:
     needs: test
