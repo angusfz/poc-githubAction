@@ -15,6 +15,7 @@ jobs:
           args: cloudformation/*.yaml
       
   deploy:
+    needs: test
     runs-on: ubuntu-18.04
     steps:
       - name: Checkout
