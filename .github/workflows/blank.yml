@@ -1,4 +1,4 @@
-name: CI
+name: CIFF
 on:
   push:
     branches: 
