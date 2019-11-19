@@ -1,0 +1,466 @@
+---
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "ECS service for fargate type. Will create IAM role, Loadbalancer, TargateGroup, ECS cluser, TaskDefinition, Cloudwatch log group and ECR "
+
+Parameters:
+  EnvType:
+    Type: String
+    Default: "develop"
+    Description: "Environment Type for this Stack. Will be used to tag Resources"
+    ConstraintDescription: "must specify production, staging, develop, demo or sandbox"
+    AllowedValues:
+      - "production"
+      - "staging"
+      - "develop"
+      - "sandbox"
+      - "demo"
+
+  StackOwner:
+    Type: String
+    Description: "StackOwner's EMAIL"
+
+  VPC:
+    Type: AWS::EC2::VPC::Id
+    Description: "VPC ID for service"
+
+  LoadBalancerSubnets:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: "The SubnetIDs of LoadBalancer"
+
+  TaskSubnets:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: "The SubnetIDs of Container"
+
+  Certificate:
+    Type: String
+    Description: "The arn of ACM for LoadBalancer"
+
+  ServiceName:
+    Type: String
+    Description: "The Name of ECS Service "
+
+  HealthCheckPath:
+    Type: String
+    Description: "The URL path of helthycheck for Targetgroup healthy check"
+    Default: "/"
+
+  HostedZoneName:
+    Type: String
+    Description: "The ID of the hosted zone"
+
+  Subdomain:
+    Type: String
+    Description: "The Subdomain of the hosted zone will point to LoadBalancer"
+
+  LoadBalancerScheme:
+    Type: String
+    Description: "Specifies whether the load balancer is internal or internet-facing"
+    Default: "internet-facing"
+
+  LoadBalancerAccessLogS3Bucket:
+    Type: String
+    Description: "The name of the S3 bucket for the LoadBalancer access logs"
+
+  MinTaskCount:
+    Type: Number
+    Description: "The Min task count for autoscaling"
+    Default: 1
+
+  MaxTaskCount:
+    Type: Number
+    Description: "The Max task count for autoscaling"
+    Default: 1
+
+  AutoScalingTargetValue:
+    Type: Number
+    Description: "Target CPU utilization (%)"
+    Default: 50
+
+  RetentionInDays:
+    Type: Number
+    Description: "The number of days Container log events are kept in CloudWatch Logs"
+    Default: 90
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: "Stack infomation"
+        Parameters:
+          - StackOwner
+          - EnvType
+      - Label:
+          default: "Network Configuration"
+        Parameters:
+          - VPC
+          - LoadBalancerSubnets
+          - TaskSubnets
+      - Label:
+          default: "DNS Configuration"
+        Parameters:
+          - HostedZoneName
+          - Subdomain
+      - Label:
+          default: "LoadBalancer Configuration"
+        Parameters:
+          - Certificate
+          - LoadBalancerScheme
+          - HealthCheckPath
+      - Label:
+          default: "ECS Configuration"
+        Parameters:
+          - MinTaskCount
+          - MaxTaskCount
+      - Label:
+          default: "Log Configuration"
+        Parameters:
+          - RetentionInDays
+          - LoadBalancerAccessLogS3Bucket
+
+Resources:
+  Cluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: !Join [ "-", [ "Cluster", !Ref ServiceName ] ]
+
+  TaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Join [ "-", [ !Ref ServiceName, TaskDefinition ] ]
+      NetworkMode: awsvpc
+      RequiresCompatibilities:
+        - FARGATE
+      # 256 (.25 vCPU) - Available memory values: 0.5GB, 1GB, 2GB
+      # 512 (.5 vCPU) - Available memory values: 1GB, 2GB, 3GB, 4GB
+      # 1024 (1 vCPU) - Available memory values: 2GB, 3GB, 4GB, 5GB, 6GB, 7GB, 8GB
+      # 2048 (2 vCPU) - Available memory values: Between 4GB and 16GB in 1GB increments
+      # 4096 (4 vCPU) - Available memory values: Between 8GB and 30GB in 1GB increments
+      Cpu: "256"
+      # 0.5GB, 1GB, 2GB - Available cpu values: 256 (.25 vCPU)
+      # 1GB, 2GB, 3GB, 4GB - Available cpu values: 512 (.5 vCPU)
+      # 2GB, 3GB, 4GB, 5GB, 6GB, 7GB, 8GB - Available cpu values: 1024 (1 vCPU)
+      # Between 4GB and 16GB in 1GB increments - Available cpu values: 2048 (2 vCPU)
+      # Between 8GB and 30GB in 1GB increments - Available cpu values: 4096 (4 vCPU)
+      Memory: "0.5GB"
+      ExecutionRoleArn: !Ref ExecutionRole
+      TaskRoleArn: !Ref TaskRole
+      ContainerDefinitions:
+        - Name: "entry_point"
+          Image: "nginx:latest"
+          PortMappings:
+            - ContainerPort: 80
+    Metadata:
+      cfn-lint:
+        config:
+          # Need refactor. Bypass ref error check. See https://github.com/104corp/vip3-infra/issues/52
+          ignore_checks:
+            - E3008
+
+  ExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Join [ "-", [ !Ref ServiceName, ExecutionRole ] ]
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Action: "sts:AssumeRole"
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
+        - !Ref ExecutionRolePolicy
+
+  ExecutionRolePolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action:
+              - ssm:GetParameters
+            Resource:
+              - !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${ServiceName}/*"
+
+  TaskRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Join [ "-", [ !Ref ServiceName, TaskRole ] ]
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: "sts:AssumeRole"
+      ManagedPolicyArns:
+        - !Ref TaskPolicy
+
+  TaskPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action:
+              - ses:SendEmail
+            Resource: "*"
+
+  AutoScalingRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Join [ "-", [ !Ref ServiceName, AutoScalingRole ] ]
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: "sts:AssumeRole"
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceAutoscaleRole"
+
+  TaskSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription:
+        !Join [ "-", [ "SG", !Ref ServiceName, TaskSecurityGroup ] ]
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          SourceSecurityGroupId: !Ref LoadBalancerSecurityGroup
+      Tags:
+        - Key: Name
+          Value: !Join [ "-", [ "SG", !Ref ServiceName, TaskSecurityGroup ] ]
+        - Key: Stage
+          Value: !Ref EnvType
+        - Key: Owner
+          Value: !Ref StackOwner
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: F1000
+            reason: "Ignore egress warn."
+
+  LoadBalancerSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: !Join [ "-", [ "SG", !Ref ServiceName, LoadBalancerSecurityGroup ] ]
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value:
+            !Join [ "-", [ "SG", !Ref ServiceName, LoadBalancerSecurityGroup ] ]
+        - Key: Stage
+          Value: !Ref EnvType
+        - Key: Owner
+          Value: !Ref StackOwner
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W9
+            reason: "Ignore for public loadbalancer."
+          - id: W2
+            reason: "Ignore for public loadbalancer."
+          - id: F1000
+            reason: "Ignore egress warn."
+
+  Service:
+    Type: AWS::ECS::Service
+    DependsOn:
+      - ListenerHTTPS
+      - ListenerHTTP
+    Properties:
+      ServiceName: !Ref ServiceName
+      Cluster: !Ref Cluster
+      TaskDefinition: !Ref TaskDefinition
+      DeploymentConfiguration:
+        MinimumHealthyPercent: 100
+        MaximumPercent: 200
+      DesiredCount: 1
+      HealthCheckGracePeriodSeconds: 300
+      LaunchType: FARGATE
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: DISABLED
+          Subnets: !Ref TaskSubnets
+          SecurityGroups:
+            - !Ref TaskSecurityGroup
+      LoadBalancers:
+        - ContainerName: "entry_point"
+          ContainerPort: 80
+          TargetGroupArn: !Ref TargetGroup
+
+  TargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      VpcId: !Ref VPC
+      TargetType: ip
+      HealthCheckIntervalSeconds: 10
+      HealthCheckPath: !Ref HealthCheckPath
+      HealthCheckTimeoutSeconds: 5
+      UnhealthyThresholdCount: 2
+      HealthyThresholdCount: 2
+      Name: !Join [ "-", [ !Ref ServiceName, TargetGroup ] ]
+      Port: 80
+      Protocol: HTTP
+      TargetGroupAttributes:
+        - Key: deregistration_delay.timeout_seconds
+          Value: "60"
+        - Key: slow_start.duration_seconds
+          Value: "120"
+      Tags:
+        - Key: Name
+          Value: !Join [ "-", [ "TG", !Ref ServiceName, TargetGroup ] ]
+        - Key: Stage
+          Value: !Ref EnvType
+        - Key: Owner
+          Value: !Ref StackOwner
+
+  ListenerHTTP:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      Protocol: HTTP
+      Port: 80
+      LoadBalancerArn: !Ref LoadBalancer
+      DefaultActions:
+        - TargetGroupArn: !Ref TargetGroup
+          Type: forward
+
+  ListenerHTTPS:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      Protocol: HTTPS
+      Port: 443
+      LoadBalancerArn: !Ref LoadBalancer
+      DefaultActions:
+        - TargetGroupArn: !Ref TargetGroup
+          Type: forward
+      Certificates:
+        - CertificateArn: !Ref Certificate
+
+  LoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: !Join [ "-", [ !Ref ServiceName, LoadBalancer ] ]
+      Scheme: !Ref LoadBalancerScheme
+      Subnets: !Ref LoadBalancerSubnets
+      SecurityGroups:
+        - !Ref LoadBalancerSecurityGroup
+      LoadBalancerAttributes:
+        - Key: deletion_protection.enabled
+          Value: "false"
+        - Key: routing.http2.enabled
+          Value: "true"
+        - Key: access_logs.s3.enabled
+          Value: "true"
+        - Key: access_logs.s3.bucket
+          Value: !Ref LoadBalancerAccessLogS3Bucket
+        - Key: access_logs.s3.prefix
+          Value: !Sub "lb-logs/${Subdomain}.${HostedZoneName}"
+        - Key: idle_timeout.timeout_seconds
+          Value: "60"
+      Tags:
+        - Key: Name
+          Value: !Join [ "-", [ "ALB", "ECS", !Ref ServiceName ] ]
+        - Key: Stage
+          Value: !Ref EnvType
+        - Key: Owner
+          Value: !Ref StackOwner
+
+  DNSRecord:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneName: !Join [ "", [ !Ref HostedZoneName, "." ] ]
+      Name: !Join [ "", [ !Ref Subdomain, ".", !Ref HostedZoneName, "." ] ]
+      Type: A
+      AliasTarget:
+        DNSName: !GetAtt LoadBalancer.DNSName
+        HostedZoneId: !GetAtt LoadBalancer.CanonicalHostedZoneID
+
+  LogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/ecs/${ServiceName}-TaskDefinition"
+      RetentionInDays: !Ref RetentionInDays
+
+  AutoScalingTarget:
+    Type: AWS::ApplicationAutoScaling::ScalableTarget
+    Properties:
+      MinCapacity: !Ref MinTaskCount
+      MaxCapacity: !Ref MaxTaskCount
+      ResourceId: !Join [ "/", [ "service", !Ref Cluster, !GetAtt Service.Name ] ]
+      ScalableDimension: ecs:service:DesiredCount
+      ServiceNamespace: ecs
+      RoleARN: !GetAtt AutoScalingRole.Arn
+
+  AutoScalingPolicy:
+    Type: AWS::ApplicationAutoScaling::ScalingPolicy
+    Properties:
+      PolicyName: !Join [ "", [ !Ref ServiceName, AutoScalingPolicy ] ]
+      PolicyType: TargetTrackingScaling
+      ScalingTargetId: !Ref AutoScalingTarget
+      TargetTrackingScalingPolicyConfiguration:
+        PredefinedMetricSpecification:
+          PredefinedMetricType: ECSServiceAverageCPUUtilization
+        ScaleInCooldown: 60
+        ScaleOutCooldown: 60
+        TargetValue: !Ref AutoScalingTargetValue
+
+  ParameterStore:
+    Type: "AWS::SSM::Parameter"
+    Properties:
+      Name: !Sub "/${ServiceName}/novalue"
+      Type: String
+      Value: "Novalue"
+
+
+Outputs:
+  ElasticContainerRegistry:
+    Value: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${ServiceName}"
+
+  TaskRole:
+    Value: !Ref TaskRole
+
+  ExecutionRole:
+    Value: !Ref ExecutionRole
+
+  Service:
+    Value: !Ref Service
+
+  Cluster:
+    Value: !Ref Cluster
+
+  TaskDefinition:
+    Value: !Ref TaskDefinition
+
+  TaskSecurityGroup:
+    Value: !Ref TaskSecurityGroup
+
+  LoadBalancer:
+    Value: !Ref LoadBalancer
+
+  LoadBalancerDNSName:
+    Value: !GetAtt LoadBalancer.DNSName
+
+  LoadBalancerSecurityGroup:
+    Value: !Ref LoadBalancerSecurityGroup
+
+  TargetGroup:
+    Value: !Ref TargetGroup
+
+  LogGroup:
+    Value: !Ref LogGroup
+
+  ServiceURL:
+    Value: !Sub "${Subdomain}.${HostedZoneName}"
