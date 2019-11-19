@@ -4,8 +4,7 @@ on:
     branches: 
       - master
 jobs:
-  test_and_deployment:
-    name: test_and_deployment
+  test:
     runs-on: ubuntu-18.04
     steps:
       - name: Checkout
