@@ -22,6 +22,7 @@ jobs:
       #    args: ${CFN_TEMPLATE}
       - run: find . -type f
       - run: touch 123123123
+      - run: sleep 30
       - run: find . -type f
       
   deploy:
