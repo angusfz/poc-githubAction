@@ -20,6 +20,8 @@ jobs:
         with:
           args: ${CFN_TEMPLATE}
       - run: find . -type f
+      - run: touch 123123123
+      - run: find . -type f
       
   deploy:
     needs: test
