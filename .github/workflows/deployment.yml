@@ -8,5 +8,4 @@ jobs:
     runs-on: ubuntu-18.04
     steps:
       
-      - run: |
-        env|sort
+      - run: env|sort

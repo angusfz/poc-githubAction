@@ -12,5 +12,4 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v1
       
-      - run: |
-        env|sort
+      - run: env|sort
