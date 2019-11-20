@@ -1,0 +1,16 @@
+name: test_pull_request
+on:
+  pull_request:
+      - deploy/test
+
+jobs:
+  test:
+    runs-on: ubuntu-18.04
+    steps:
+      
+      - name: Checkout
+        uses: actions/checkout@v1
+      
+      - run: |
+        env|sort
+

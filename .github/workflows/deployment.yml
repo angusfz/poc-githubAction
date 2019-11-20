@@ -1,0 +1,12 @@
+name: deployment
+on:
+  push:
+    branches: 
+      - deploy/test
+jobs:
+  test:
+    runs-on: ubuntu-18.04
+    steps:
+      
+      - run: |
+        env|sort
