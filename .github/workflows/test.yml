@@ -1,4 +1,4 @@
-name: CIFF
+name: test
 on:
   push:
     branches-ignore:
