@@ -14,3 +14,8 @@ jobs:
       
       - run: env|sort
       - run: echo 123
+
+  test1:
+    runs-on: ubuntu-18.04
+    steps:
+      - run: env|sort
