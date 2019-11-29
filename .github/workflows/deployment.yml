@@ -2,7 +2,7 @@ name: deployment
 on:
   push:
     branches: 
-      - deploy/test
+      - deploy/test1
 jobs:
   test:
     runs-on: ubuntu-18.04
